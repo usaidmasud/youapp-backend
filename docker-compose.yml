@@ -1,0 +1,140 @@
+services:
+
+  api-gateway:
+    container_name: api-gateway
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.api-gateway
+    ports:
+      - "3091:3091"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./uploads:/app/uploads
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    restart: always
+    networks:
+      - youapp-backend
+  user-service:
+    container_name: user-service
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.user-service
+    ports:
+      - "3093:3093"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo-user-db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - youapp-backend
+  chat-service:
+    container_name: chat-service
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.chat-service
+    ports:
+      - "3092:3092"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mongo-chat-db:
+        condition: service_healthy
+    restart: always
+    networks:
+      - youapp-backend
+  notification-service:
+    container_name: notification-service
+    build:
+      context: .
+      dockerfile: docker/dev/Dockerfile.notification-service
+    ports:
+      - "3094:3094"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: always
+    networks:
+      - youapp-backend
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672" # AMQP protocol
+      - "15672:15672" # Web UI
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - youapp-backend
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  mongo-user-db:
+    container_name: mongo-user-db
+    image: mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo-user-db-data:/data/db
+    networks:
+      - youapp-backend
+    restart: always
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mongo-chat-db:
+    container_name: mongo-chat-db
+    image: mongo
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongo-chat-db-data:/data/db
+    networks:
+      - youapp-backend
+    restart: always
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mongo-user-db-data:
+  mongo-chat-db-data:
+
+
+networks:
+  youapp-backend:
+    driver: bridge
